@@ -31,17 +31,21 @@ export default function WeatherStrip({
           <input
             value={location}
             onChange={(e) => onLocationChange(e.target.value)}
-            placeholder="City, or where you're traveling to"
+            placeholder="Optional — city or trip destination"
             className="mt-1 w-64 rounded-lg border border-border bg-background px-3 py-1.5 text-base font-semibold outline-none focus:border-accent"
           />
         </div>
         <p className="text-xs text-muted">
-          Tip: type a trip destination to plan outfits around different weather.
+          {location.trim()
+            ? "Tip: type a trip destination to plan outfits around different weather."
+            : "Leave blank to skip weather and style by your plans alone."}
         </p>
       </div>
 
       <div className="mt-4 flex gap-3 overflow-x-auto scrollbar-thin pb-1">
-        {isLoading ? (
+        {!location.trim() ? (
+          <p className="text-sm text-muted">No location set — weather isn&apos;t factored in.</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading forecast…</p>
         ) : (
           weather.map((day) => (

@@ -6,10 +6,8 @@ import OutfitCard from "@/components/OutfitCard";
 import WeatherStrip from "@/components/WeatherStrip";
 import type { ChatMessage, ClothingItem, DayWeather, OutfitSuggestion } from "@/lib/types";
 
-const DEFAULT_LOCATION = "New York, NY";
-
 export default function DashboardClient() {
-  const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const [location, setLocation] = useState("");
   const [weather, setWeather] = useState<DayWeather[]>([]);
   const [isWeatherLoading, setIsWeatherLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,6 +32,13 @@ export default function DashboardClient() {
     const params = new URLSearchParams({ location, days: "7" });
 
     async function loadWeather() {
+      if (!location.trim()) {
+        if (!cancelled) {
+          setWeather([]);
+          setIsWeatherLoading(false);
+        }
+        return;
+      }
       setIsWeatherLoading(true);
       const res = await fetch(`/api/weather?${params.toString()}`);
       const data = await res.json();

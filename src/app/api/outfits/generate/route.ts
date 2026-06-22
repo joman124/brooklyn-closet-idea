@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractChatContext, generateWeeklyOutfits } from "@/lib/ai";
+import { extractChatContext, generateWeeklyOutfits, type PlanDay } from "@/lib/ai";
 import { withDb } from "@/lib/db";
 import { getWeeklyWeather } from "@/lib/weather";
+
+function dateSequence(startDate: string, days: number): string[] {
+  const start = new Date(startDate);
+  const dates: string[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
@@ -11,13 +22,19 @@ export async function POST(request: NextRequest) {
     days?: number;
   };
 
-  const location = body.location?.trim() || "New York, NY";
+  const location = body.location?.trim() || "";
   const startDate = body.startDate || new Date().toISOString().slice(0, 10);
   const days = body.days ?? 7;
   const contextText = body.context?.trim() || "";
 
-  const [weather, chatContext] = await Promise.all([
-    getWeeklyWeather(location, startDate, days),
+  const [planDays, chatContext] = await Promise.all([
+    location
+      ? getWeeklyWeather(location, startDate, days).then((weather): PlanDay[] =>
+          weather.map((day) => ({ date: day.date, location, weather: day }))
+        )
+      : Promise.resolve(
+          dateSequence(startDate, days).map((date): PlanDay => ({ date, location: "", weather: null }))
+        ),
     contextText ? extractChatContext(contextText) : Promise.resolve(null),
   ]);
 
@@ -35,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   const outfits = generateWeeklyOutfits({
     closet,
-    days: weather,
+    days: planDays,
     context: contextText,
     formalityHint: chatContext?.formalityHint ?? 2,
     activityTags: chatContext?.activityTags ?? [],
@@ -48,5 +65,5 @@ export async function POST(request: NextRequest) {
     data.outfits.push(...outfits);
   });
 
-  return NextResponse.json({ outfits, weather, closet });
+  return NextResponse.json({ outfits, weather: planDays.map((d) => d.weather).filter(Boolean), closet });
 }

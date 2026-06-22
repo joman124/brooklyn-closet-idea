@@ -11,7 +11,8 @@ taste from the outfits you upvote or downvote.
 - **Chat-based context** — describe your week ("client meetings Mon–Wed, a hike Saturday, dinner
   date Saturday night") and the assistant factors that into what it picks.
 - **Weather-aware planning** — pulls a 7-day forecast for any location (current city or a trip
-  destination) and adjusts warmth/layering accordingly.
+  destination) and adjusts warmth/layering accordingly. Location is optional — leave it blank and
+  outfits are styled from your chat context alone, no forecast involved.
 - **Up/down voting** — vote on generated outfits; votes nudge item preference scores that bias
   future picks toward what you actually like.
 - **Premium stylist stub** — a placeholder upgrade flow for a future "connect with a human

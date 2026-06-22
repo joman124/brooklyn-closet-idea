@@ -230,7 +230,8 @@ export async function extractChatContext(message: string): Promise<ChatContext> 
 // Outfit generation
 // ---------------------------------------------------------------------------
 
-function weatherWarmthTarget(weather: DayWeather): number {
+function weatherWarmthTarget(weather: DayWeather | null): number {
+  if (!weather) return 3; // neutral — no forecast to go on
   if (weather.tempHighF <= 35) return 5;
   if (weather.tempHighF <= 50) return 4;
   if (weather.tempHighF <= 65) return 3;
@@ -238,7 +239,8 @@ function weatherWarmthTarget(weather: DayWeather): number {
   return 1;
 }
 
-function needsOuterwear(weather: DayWeather): boolean {
+function needsOuterwear(weather: DayWeather | null): boolean {
+  if (!weather) return false; // unknown conditions — don't force a layer
   return weather.tempHighF <= 60 || weather.condition === "rainy" || weather.condition === "snowy" || weather.condition === "windy";
 }
 
@@ -268,9 +270,15 @@ function pickBest(
     .sort((a, b) => b.score - a.score)[0].item;
 }
 
+export interface PlanDay {
+  date: string;
+  location: string;
+  weather: DayWeather | null;
+}
+
 export interface GenerateOutfitsParams {
   closet: ClothingItem[];
-  days: DayWeather[];
+  days: PlanDay[];
   context: string;
   formalityHint: number;
   activityTags: string[];
@@ -287,7 +295,7 @@ export function generateWeeklyOutfits(params: GenerateOutfitsParams): OutfitSugg
   const accessories = closet.filter((i) => i.category === "accessory");
 
   return days.map((day, dayIndex) => {
-    const warmthTarget = weatherWarmthTarget(day);
+    const warmthTarget = weatherWarmthTarget(day.weather);
     const seed = hashString(`${day.date}|${context}|${dayIndex}`);
     const opts = { formalityHint, warmthTarget, itemScores, seed };
 
@@ -307,7 +315,7 @@ export function generateWeeklyOutfits(params: GenerateOutfitsParams): OutfitSugg
     const shoe = pickBest(shoes, opts);
     if (shoe) chosen.push(shoe);
 
-    if (needsOuterwear(day)) {
+    if (needsOuterwear(day.weather)) {
       const jacket = pickBest(outerwear, opts);
       if (jacket) chosen.push(jacket);
     }
@@ -317,10 +325,12 @@ export function generateWeeklyOutfits(params: GenerateOutfitsParams): OutfitSugg
       if (accessory) chosen.push(accessory);
     }
 
-    const weatherSummary = `${day.condition}, ${day.tempLowF}-${day.tempHighF}°F in ${day.location}`;
+    const weatherSummary = day.weather
+      ? `${day.weather.condition}, ${day.weather.tempLowF}-${day.weather.tempHighF}°F in ${day.location}`
+      : "No location set — styled by your plans alone";
     const activitySummary = activityTags.length ? activityTags.join(", ") : "your day";
     const rationale = chosen.length
-      ? `Picked for ${activitySummary} with ${weatherSummary.toLowerCase()} in mind.`
+      ? `Picked for ${activitySummary}${day.weather ? ` with ${weatherSummary.toLowerCase()} in mind` : ""}.`
       : `Your closet doesn't have enough tagged items yet to build a full outfit for this day.`;
 
     const outfit: OutfitSuggestion = {
