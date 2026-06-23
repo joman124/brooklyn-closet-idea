@@ -50,6 +50,28 @@ file at `data/db.json` (created automatically, gitignored). Uploaded photos are 
 `public/uploads/`. This is intentionally simple for a single-user app — swap in a real database
 before adding multi-user accounts.
 
+## iOS app (Capacitor)
+
+The web app is wrapped as a native iOS app via [Capacitor](https://capacitorjs.com). Because this
+app has server-side API routes and writes to a local JSON file + disk uploads, the iOS shell can't
+bundle a static export — instead it points its WebView at a deployed instance of this Next.js app
+(see `capacitor.config.ts`).
+
+Building the iOS app requires a Mac with Xcode — it can't be done from this Linux environment, but
+the Xcode project is already scaffolded under `ios/`. To build it:
+
+1. Deploy this app (e.g. to Vercel) and get its HTTPS URL.
+2. Set `CAPACITOR_SERVER_URL` to that URL and run `npm run cap:sync` to write it into the iOS
+   project's config.
+3. Run `npm run cap:open:ios` to open `ios/App/App.xcodeproj` in Xcode.
+4. Set your Apple Developer Team in the App target's Signing & Capabilities tab, then build and
+   run on a simulator or device.
+5. To share with friends as a beta, use TestFlight — this requires an Apple Developer Program
+   membership ($99/year); there's no free way to install on someone else's iPhone remotely.
+
+Without `CAPACITOR_SERVER_URL` set, the shell defaults to `http://localhost:3000` for local
+development against `npm run dev`.
+
 ## Project structure
 
 - `src/lib/ai.ts` — clothing classification, chat context extraction, and the outfit-generation
