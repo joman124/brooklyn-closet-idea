@@ -50,9 +50,34 @@ file at `data/db.json` (created automatically, gitignored). Uploaded photos are 
 `public/uploads/`. This is intentionally simple for a single-user app — swap in a real database
 before adding multi-user accounts.
 
-## iOS app (Capacitor)
+## Testing this as a mobile app (no Mac/Xcode required)
 
-The web app is wrapped as a native iOS app via [Capacitor](https://capacitorjs.com). Because this
+The app is an installable [PWA](https://web.dev/explore/progressive-web-apps) — it ships a web
+manifest (`src/app/manifest.ts`) and generated app icons (`src/app/icon.tsx`,
+`src/app/apple-icon.tsx`, `src/app/icon-192/`, `src/app/icon-512/`), plus the meta tags needed for
+iOS "standalone" mode (`src/app/layout.tsx`). This is the fastest way to try it on a phone, since it
+needs no Apple Developer account, no Xcode, and no app store review.
+
+1. **Deploy it somewhere reachable from your phone.** On [Replit](https://replit.com):
+   - "Import from GitHub" → this repo → branch `claude/ai-wardrobe-outfit-app-e0pzyf`.
+   - Replit auto-detects Node and reads the included `.replit` config; hit **Run**, or manually run
+     `npm install && npm run dev -- -p 3000` in the Shell.
+   - (Optional) Add `ANTHROPIC_API_KEY` / `OPENWEATHER_API_KEY` as Replit **Secrets** to use real AI
+     tagging and real forecasts instead of the mock fallbacks — neither is required.
+   - Replit gives you a public `https://*.replit.dev` URL once it's running.
+2. **Open that URL on your iPhone in Safari** (or Chrome on Android).
+3. Tap **Share → Add to Home Screen** (iOS) or use the **Install app** prompt (Android/Chrome).
+   It now launches full-screen from your home screen icon like a native app, with no browser
+   chrome — camera/photo uploads in the wardrobe step use your phone's native picker since
+   `UploadDropzone` is a plain file input.
+
+This is single-user/no-login, so anyone with the URL can use the same wardrobe — fine for testing
+with friends, but don't share the link publicly.
+
+## Native iOS app (Capacitor) — only if you need an actual App Store / TestFlight build
+
+The web app can also be wrapped as a native iOS app via [Capacitor](https://capacitorjs.com), if
+you eventually want a real App Store/TestFlight build rather than a home-screen PWA. Because this
 app has server-side API routes and writes to a local JSON file + disk uploads, the iOS shell can't
 bundle a static export — instead it points its WebView at a deployed instance of this Next.js app
 (see `capacitor.config.ts`).
@@ -60,7 +85,7 @@ bundle a static export — instead it points its WebView at a deployed instance 
 Building the iOS app requires a Mac with Xcode — it can't be done from this Linux environment, but
 the Xcode project is already scaffolded under `ios/`. To build it:
 
-1. Deploy this app (e.g. to Vercel) and get its HTTPS URL.
+1. Deploy this app (e.g. to Vercel or Replit) and get its HTTPS URL.
 2. Set `CAPACITOR_SERVER_URL` to that URL and run `npm run cap:sync` to write it into the iOS
    project's config.
 3. Run `npm run cap:open:ios` to open `ios/App/App.xcodeproj` in Xcode.

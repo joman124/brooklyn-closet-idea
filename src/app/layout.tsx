@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import "./globals.css";
@@ -16,6 +16,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Brooklyn Closet — Your AI Stylist",
   description: "Upload your wardrobe and let AI plan your outfits for the week.",
+  appleWebApp: {
+    capable: true,
+    title: "Closet",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#b4552f",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
