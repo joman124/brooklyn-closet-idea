@@ -1,7 +1,7 @@
 // Thin REST client for the Gemini API (https://ai.google.dev) — no SDK
 // dependency needed, just fetch. Free tier: create a key at
 // https://aistudio.google.com/apikey and set GEMINI_API_KEY.
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-2.5-flash";
 
 function apiKey(): string | null {
   return process.env.GEMINI_API_KEY?.trim() || null;

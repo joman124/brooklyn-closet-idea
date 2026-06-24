@@ -109,7 +109,7 @@ async function realDetectClothingItems(
     '"color":"string","pattern":"string","styleTags":["string"],"warmth":1-5,"formality":1-5}';
 
   const result = await generateJsonFromImage<DetectedClothingItem[]>(prompt, imageBuffer, mimeType);
-  if (!result || !Array.isArray(result) || result.length === 0) return null;
+  if (!result || !Array.isArray(result)) return null;
   return result;
 }
 
@@ -119,7 +119,7 @@ export async function detectClothingItems(
   mimeType: string
 ): Promise<DetectedClothingItem[]> {
   const real = await realDetectClothingItems(imageBuffer, mimeType);
-  if (real) return real;
+  if (real !== null) return real;
   return mockDetectClothingItems(`${filename}|${imageBuffer.length}`);
 }
 
