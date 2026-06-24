@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import ItemCard from "@/components/ItemCard";
+import ItemDetailModal from "@/components/ItemDetailModal";
 import UploadDropzone from "@/components/UploadDropzone";
 import UploadReviewModal from "@/components/UploadReviewModal";
 import type { ClothingItem, DetectedClothingItem } from "@/lib/types";
@@ -22,6 +22,7 @@ export default function ClosetClient() {
   const [totalCount, setTotalCount] = useState(0);
   const [detections, setDetections] = useState<DetectedClothingItem[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/items")
@@ -77,6 +78,7 @@ export default function ClosetClient() {
 
   async function handleDelete(id: string, rating: number | null) {
     setItems((prev) => prev.filter((item) => item.id !== id));
+    setSelectedItemId((current) => (current === id ? null : current));
     await fetch(`/api/items/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -95,6 +97,7 @@ export default function ClosetClient() {
 
   const visibleItems = filter === "all" ? items : items.filter((item) => item.category === filter);
   const isReviewing = activeFile !== null;
+  const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -136,13 +139,39 @@ export default function ClosetClient() {
               : "No items in this category yet."}
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
             {visibleItems.map((item) => (
-              <ItemCard key={item.id} item={item} onDelete={handleDelete} onUpdate={handleUpdate} />
+              <li key={item.id}>
+                <button
+                  onClick={() => setSelectedItemId(item.id)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-accent-soft/30"
+                >
+                  <span className="capitalize">
+                    <span className="font-medium">
+                      {item.color} {item.subcategory}
+                    </span>
+                    <span className="text-muted">
+                      {" "}
+                      · {item.pattern}
+                      {item.styleTags.length > 0 ? ` · ${item.styleTags.join(", ")}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs capitalize text-muted">{item.category}</span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
+
+      {selectedItem && (
+        <ItemDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItemId(null)}
+          onDelete={handleDelete}
+          onUpdate={handleUpdate}
+        />
+      )}
 
       {isReviewing && activeFile && (
         <UploadReviewModal

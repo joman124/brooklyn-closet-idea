@@ -40,27 +40,29 @@ export default function WeatherStrip({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-muted">🌤️ What city should we style for?</p>
-          <form onSubmit={submit} className="mt-1 flex gap-2">
+          <form onSubmit={submit} className="mt-1 flex flex-wrap gap-2">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Enter your city (e.g. Brooklyn, NY)"
-              className="w-64 rounded-lg border border-border bg-background px-3 py-1.5 text-base font-semibold outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-base font-semibold outline-none focus:border-accent sm:w-64"
             />
-            <button
-              type="submit"
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white"
-            >
-              Set
-            </button>
-            <button
-              type="button"
-              onClick={onUseMyLocation}
-              disabled={isLocating}
-              className="whitespace-nowrap rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50"
-            >
-              {isLocating ? "Locating…" : "📍 Use my location"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white"
+              >
+                Set
+              </button>
+              <button
+                type="button"
+                onClick={onUseMyLocation}
+                disabled={isLocating}
+                className="whitespace-nowrap rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50"
+              >
+                {isLocating ? "Locating…" : "📍 Use my location"}
+              </button>
+            </div>
           </form>
         </div>
         <p className="text-xs text-muted">

@@ -136,9 +136,9 @@ export default function DashboardClient() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-accent-soft via-pop-soft to-accent-soft p-6">
-        <span className="absolute -right-2 -top-2 animate-float text-5xl opacity-70">✨</span>
+        <span className="absolute -right-2 -top-2 hidden animate-float text-5xl opacity-70 sm:block">✨</span>
         <span className="absolute bottom-2 right-16 hidden text-3xl opacity-60 sm:block">👜</span>
-        <h1 className="text-3xl font-semibold tracking-tight">This Week ✨</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">This Week ✨</h1>
         <p className="mt-1 max-w-lg text-muted">
           Tell your stylist what&apos;s going on, set your city for live weather, and let AI build
           your whole week of outfits in one tap.
@@ -156,7 +156,7 @@ export default function DashboardClient() {
             isLoading={isWeatherLoading}
           />
 
-          <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-5">
+          <div className="flex flex-col items-stretch gap-3 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-semibold">Ready to plan your week? 🪄</p>
               <p className="text-sm text-muted">
@@ -168,7 +168,7 @@ export default function DashboardClient() {
             <button
               onClick={handleGenerate}
               disabled={isGenerating || closet.length === 0}
-              className="rounded-lg bg-gradient-to-r from-accent to-pop px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+              className="rounded-lg bg-gradient-to-r from-accent to-pop px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 sm:shrink-0"
             >
               {isGenerating ? "Styling…" : "Generate this week's outfits"}
             </button>
