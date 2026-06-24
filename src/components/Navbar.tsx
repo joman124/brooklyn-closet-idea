@@ -16,10 +16,12 @@ export default function Navbar() {
     <header className="sticky top-0 z-20 border-b border-border bg-surface/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
-            BC
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-accent to-pop text-base shadow-sm">
+            👗
           </span>
-          <span className="text-lg font-semibold tracking-tight">Brooklyn Closet</span>
+          <span className="text-lg font-semibold tracking-tight">
+            Brooklyn Closet
+          </span>
         </Link>
         <nav className="flex items-center gap-1 rounded-full border border-border bg-background p-1">
           {LINKS.map((link) => {

@@ -56,10 +56,41 @@ export interface StylistRequest {
   createdAt: string;
 }
 
+export interface UserPreferences {
+  favoriteColors: string[];
+  dislikedColors: string[];
+  favoriteStyles: string[];
+  dislikedStyles: string[];
+  notes: string[];
+}
+
+export interface ItemRating {
+  id: string;
+  itemId: string;
+  category: ClothingCategory;
+  color: string;
+  styleTags: string[];
+  rating: number; // 1-5
+  createdAt: string;
+}
+
+export interface DetectedClothingItem {
+  box: { x: number; y: number; width: number; height: number }; // 0-1 fractions of image
+  category: ClothingCategory;
+  subcategory: string;
+  color: string;
+  pattern: string;
+  styleTags: string[];
+  warmth: number;
+  formality: number;
+}
+
 export interface AppData {
   items: ClothingItem[];
   outfits: OutfitSuggestion[];
   chatMessages: ChatMessage[];
   itemScores: Record<string, number>;
   stylistRequests: StylistRequest[];
+  preferences: UserPreferences;
+  itemRatings: ItemRating[];
 }

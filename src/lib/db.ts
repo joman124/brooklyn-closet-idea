@@ -11,6 +11,14 @@ const EMPTY_DATA: AppData = {
   chatMessages: [],
   itemScores: {},
   stylistRequests: [],
+  preferences: {
+    favoriteColors: [],
+    dislikedColors: [],
+    favoriteStyles: [],
+    dislikedStyles: [],
+    notes: [],
+  },
+  itemRatings: [],
 };
 
 function ensureDb(): void {

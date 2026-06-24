@@ -8,6 +8,8 @@
   --border: #e7e0d6;
   --accent: #b4552f;
   --accent-soft: #f1dccb;
+  --pop: #c2467a;
+  --pop-soft: #f6dce9;
   --success: #3f7d4f;
   --danger: #b3433f;
 }
@@ -20,6 +22,8 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-pop: var(--pop);
+  --color-pop-soft: var(--pop-soft);
   --color-success: var(--success);
   --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
@@ -44,4 +48,13 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 999px;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-6px) rotate(2deg); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractChatContext, generateWeeklyOutfits, type PlanDay } from "@/lib/ai";
+import { extractActivityContext, generateWeeklyOutfits, type PlanDay } from "@/lib/ai";
 import { withDb } from "@/lib/db";
 import { getWeeklyWeather } from "@/lib/weather";
 
@@ -27,20 +27,18 @@ export async function POST(request: NextRequest) {
   const days = body.days ?? 7;
   const contextText = body.context?.trim() || "";
 
-  const [planDays, chatContext] = await Promise.all([
-    location
-      ? getWeeklyWeather(location, startDate, days).then((weather): PlanDay[] =>
-          weather.map((day) => ({ date: day.date, location, weather: day }))
-        )
-      : Promise.resolve(
-          dateSequence(startDate, days).map((date): PlanDay => ({ date, location: "", weather: null }))
-        ),
-    contextText ? extractChatContext(contextText) : Promise.resolve(null),
-  ]);
+  const planDays = location
+    ? await getWeeklyWeather(location, startDate, days).then((weather): PlanDay[] =>
+        weather.map((day) => ({ date: day.date, location, weather: day }))
+      )
+    : dateSequence(startDate, days).map((date): PlanDay => ({ date, location: "", weather: null }));
 
-  const { closet, itemScores } = withDb((data) => ({
+  const activityContext = contextText ? extractActivityContext(contextText) : null;
+
+  const { closet, itemScores, preferences } = withDb((data) => ({
     closet: data.items,
     itemScores: data.itemScores,
+    preferences: data.preferences,
   }));
 
   if (closet.length === 0) {
@@ -54,9 +52,10 @@ export async function POST(request: NextRequest) {
     closet,
     days: planDays,
     context: contextText,
-    formalityHint: chatContext?.formalityHint ?? 2,
-    activityTags: chatContext?.activityTags ?? [],
+    formalityHint: activityContext?.formalityHint ?? 2,
+    activityTags: activityContext?.activityTags ?? [],
     itemScores,
+    preferences,
   });
 
   withDb((data) => {

@@ -21,9 +21,9 @@ export default function OutfitCard({ outfit, items, onVote }: OutfitCardProps) {
   });
 
   return (
-    <div className="flex flex-col rounded-2xl border border-border bg-surface p-4">
+    <div className="flex flex-col rounded-2xl border border-border bg-surface p-4 transition-shadow hover:shadow-md">
       <div className="flex items-baseline justify-between">
-        <p className="font-semibold">{dayLabel}</p>
+        <p className="font-semibold">👚 {dayLabel}</p>
         <p className="text-xs text-muted">{outfit.weatherSummary}</p>
       </div>
 

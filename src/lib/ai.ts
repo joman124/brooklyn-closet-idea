@@ -1,33 +1,18 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { generateJson, generateJsonFromImage } from "./gemini";
 import { hashString, pick, seededRandom } from "./hash";
 import type {
   ClothingCategory,
   ClothingItem,
   DayWeather,
+  DetectedClothingItem,
   OutfitSuggestion,
+  UserPreferences,
 } from "./types";
 
-const MODEL = "claude-sonnet-4-5";
-
-function anthropicClient(): Anthropic | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  return new Anthropic({ apiKey });
-}
-
 // ---------------------------------------------------------------------------
-// Clothing classification (used right after a wardrobe photo is uploaded)
+// Shared mock vocabulary (used whenever GEMINI_API_KEY isn't set, or a real
+// call fails — keeps the app fully usable with zero API keys configured)
 // ---------------------------------------------------------------------------
-
-export interface ClassifiedClothing {
-  category: ClothingCategory;
-  subcategory: string;
-  color: string;
-  pattern: string;
-  styleTags: string[];
-  warmth: number;
-  formality: number;
-}
 
 const CATEGORY_SUBCATEGORIES: Record<ClothingCategory, string[]> = {
   top: ["t-shirt", "blouse", "sweater", "button-down shirt", "tank top", "hoodie"],
@@ -51,28 +36,24 @@ const STYLE_TAGS = [
 ];
 
 const BASE_WARMTH: Record<ClothingCategory, number> = {
-  top: 2,
-  bottom: 2,
-  outerwear: 4,
-  shoes: 2,
-  accessory: 2,
-  dress: 2,
+  top: 2, bottom: 2, outerwear: 4, shoes: 2, accessory: 2, dress: 2,
 };
 
 const BASE_FORMALITY: Record<ClothingCategory, number> = {
-  top: 2,
-  bottom: 2,
-  outerwear: 3,
-  shoes: 2,
-  accessory: 2,
-  dress: 3,
+  top: 2, bottom: 2, outerwear: 3, shoes: 2, accessory: 2, dress: 3,
 };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
-function mockClassifyClothing(seedKey: string): ClassifiedClothing {
+// ---------------------------------------------------------------------------
+// Clothing detection (used right after a wardrobe photo is uploaded) — finds
+// every distinct item in a photo with a bounding box so the user can review
+// each one before it's saved.
+// ---------------------------------------------------------------------------
+
+function mockDetectOne(seedKey: string, box: DetectedClothingItem["box"]): DetectedClothingItem {
   const seed = hashString(seedKey);
   const categories = Object.keys(CATEGORY_SUBCATEGORIES) as ClothingCategory[];
   const category = pick(categories, seed);
@@ -88,6 +69,7 @@ function mockClassifyClothing(seedKey: string): ClassifiedClothing {
   const formalityJitter = (seededRandom(seed * 19 + 7) - 0.5) * 2;
 
   return {
+    box,
     category,
     subcategory,
     color,
@@ -98,68 +80,78 @@ function mockClassifyClothing(seedKey: string): ClassifiedClothing {
   };
 }
 
-async function realClassifyClothing(
-  imageBuffer: Buffer,
-  mimeType: string
-): Promise<ClassifiedClothing | null> {
-  const client = anthropicClient();
-  if (!client) return null;
-
-  try {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType as "image/jpeg" | "image/png" | "image/webp",
-                data: imageBuffer.toString("base64"),
-              },
-            },
-            {
-              type: "text",
-              text:
-                "Identify this clothing item. Respond with ONLY JSON matching this shape: " +
-                '{"category":"top|bottom|outerwear|shoes|accessory|dress","subcategory":"string",' +
-                '"color":"string","pattern":"string","styleTags":["string"],"warmth":1-5,"formality":1-5}',
-            },
-          ],
-        },
-      ],
-    });
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") return null;
-    const json = JSON.parse(textBlock.text.trim());
-    return json as ClassifiedClothing;
-  } catch {
-    return null;
+function mockDetectClothingItems(seedKey: string): DetectedClothingItem[] {
+  const seed = hashString(seedKey);
+  // Most wardrobe photos show one garment; occasionally simulate a flat-lay
+  // with two items stacked top/bottom so the review flow has something to
+  // exercise even without a real vision call.
+  const twoItems = seededRandom(seed + 41) > 0.65;
+  if (!twoItems) {
+    return [mockDetectOne(seedKey, { x: 0.08, y: 0.05, width: 0.84, height: 0.9 })];
   }
+  return [
+    mockDetectOne(`${seedKey}|a`, { x: 0.1, y: 0.04, width: 0.8, height: 0.44 }),
+    mockDetectOne(`${seedKey}|b`, { x: 0.1, y: 0.52, width: 0.8, height: 0.44 }),
+  ];
 }
 
-export async function classifyClothing(
+async function realDetectClothingItems(
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<DetectedClothingItem[] | null> {
+  const prompt =
+    "Identify every distinct clothing item or accessory visible in this photo (a flat-lay or " +
+    "garment photo may contain more than one). For each item, return its bounding box as " +
+    "fractions of the image width/height (x,y = top-left corner). Respond with ONLY a JSON " +
+    "array, no other text, where each element matches: " +
+    '{"box":{"x":0-1,"y":0-1,"width":0-1,"height":0-1},' +
+    '"category":"top|bottom|outerwear|shoes|accessory|dress","subcategory":"string",' +
+    '"color":"string","pattern":"string","styleTags":["string"],"warmth":1-5,"formality":1-5}';
+
+  const result = await generateJsonFromImage<DetectedClothingItem[]>(prompt, imageBuffer, mimeType);
+  if (!result || !Array.isArray(result) || result.length === 0) return null;
+  return result;
+}
+
+export async function detectClothingItems(
   imageBuffer: Buffer,
   filename: string,
   mimeType: string
-): Promise<ClassifiedClothing> {
-  const real = await realClassifyClothing(imageBuffer, mimeType);
+): Promise<DetectedClothingItem[]> {
+  const real = await realDetectClothingItems(imageBuffer, mimeType);
   if (real) return real;
-  return mockClassifyClothing(`${filename}|${imageBuffer.length}`);
+  return mockDetectClothingItems(`${filename}|${imageBuffer.length}`);
 }
 
 // ---------------------------------------------------------------------------
-// Chat context extraction (used to read "what are you up to" messages)
+// Chat: conversational stylist with persistent preference memory
 // ---------------------------------------------------------------------------
 
-export interface ChatContext {
-  formalityHint: number; // 1-5
-  activityTags: string[];
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatResult {
   reply: string;
+  formalityHint: number;
+  activityTags: string[];
+  preferenceUpdates: {
+    favoriteColors: string[];
+    dislikedColors: string[];
+    favoriteStyles: string[];
+    dislikedStyles: string[];
+    notes: string[];
+  };
 }
+
+const EMPTY_PREFERENCE_UPDATES: ChatResult["preferenceUpdates"] = {
+  favoriteColors: [],
+  dislikedColors: [],
+  favoriteStyles: [],
+  dislikedStyles: [],
+  notes: [],
+};
 
 const ACTIVITY_KEYWORDS: { keywords: string[]; tag: string; formality: number }[] = [
   { keywords: ["work", "office", "meeting", "client", "presentation"], tag: "work", formality: 4 },
@@ -174,56 +166,154 @@ const ACTIVITY_KEYWORDS: { keywords: string[]; tag: string; formality: number }[
   { keywords: ["school", "class", "lecture"], tag: "school", formality: 2 },
 ];
 
-function mockExtractChatContext(message: string): ChatContext {
+function extractMockPreferenceUpdates(message: string): ChatResult["preferenceUpdates"] {
   const lower = message.toLowerCase();
-  const matches = ACTIVITY_KEYWORDS.filter((entry) =>
-    entry.keywords.some((kw) => lower.includes(kw))
-  );
+  const updates = { ...EMPTY_PREFERENCE_UPDATES, favoriteColors: [] as string[], dislikedColors: [] as string[], favoriteStyles: [] as string[], dislikedStyles: [] as string[], notes: [] as string[] };
 
+  const lovePattern = /\b(love|like|prefer|favorite|favourite)\b[^.!?]*/g;
+  const hatePattern = /\b(hate|dislike|don't like|avoid|never wear)\b[^.!?]*/g;
+
+  for (const match of lower.match(lovePattern) ?? []) {
+    for (const color of COLORS) if (match.includes(color)) updates.favoriteColors.push(color);
+    for (const style of STYLE_TAGS) if (match.includes(style)) updates.favoriteStyles.push(style);
+  }
+  for (const match of lower.match(hatePattern) ?? []) {
+    for (const color of COLORS) if (match.includes(color)) updates.dislikedColors.push(color);
+    for (const style of STYLE_TAGS) if (match.includes(style)) updates.dislikedStyles.push(style);
+  }
+  return updates;
+}
+
+function mockChatWithStylist(message: string, preferences: UserPreferences): ChatResult {
+  const lower = message.toLowerCase();
+  const matches = ACTIVITY_KEYWORDS.filter((entry) => entry.keywords.some((kw) => lower.includes(kw)));
   const activityTags = matches.map((m) => m.tag);
   const formalityHint = matches.length
     ? Math.round(matches.reduce((sum, m) => sum + m.formality, 0) / matches.length)
     : 2;
 
-  const reply = activityTags.length
+  const preferenceUpdates = extractMockPreferenceUpdates(message);
+  const learnedSomething =
+    preferenceUpdates.favoriteColors.length ||
+    preferenceUpdates.dislikedColors.length ||
+    preferenceUpdates.favoriteStyles.length ||
+    preferenceUpdates.dislikedStyles.length;
+
+  const knownPrefs = [...preferences.favoriteColors, ...preferences.favoriteStyles].slice(0, 2);
+
+  let reply = activityTags.length
     ? `Got it — sounds like ${activityTags.join(", ")} is on the agenda. I'll lean ${
         formalityHint >= 4 ? "polished" : formalityHint <= 1 ? "relaxed" : "smart-casual"
       } and factor in the weather when I put outfits together for you.`
-    : "Thanks for the context! I'll keep that in mind and factor in the weather when I plan your outfits.";
+    : "Thanks for the context! I'll factor that into your outfit plan.";
 
-  return { formalityHint, activityTags, reply };
-}
-
-async function realExtractChatContext(message: string): Promise<ChatContext | null> {
-  const client = anthropicClient();
-  if (!client) return null;
-
-  try {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content:
-            `A user is describing their plans to a personal stylist app: "${message}"\n\n` +
-            "Respond with ONLY JSON: " +
-            '{"formalityHint":1-5,"activityTags":["string"],"reply":"a short, warm, helpful one or two sentence reply to the user"}',
-        },
-      ],
-    });
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") return null;
-    return JSON.parse(textBlock.text.trim()) as ChatContext;
-  } catch {
-    return null;
+  if (learnedSomething) {
+    reply += " Noted your taste there — I'll remember that for future picks.";
+  } else if (knownPrefs.length) {
+    reply += ` (Still keeping ${knownPrefs.join(" and ")} in mind from before.)`;
   }
+
+  return { reply, formalityHint, activityTags, preferenceUpdates };
 }
 
-export async function extractChatContext(message: string): Promise<ChatContext> {
-  const real = await realExtractChatContext(message);
+async function realChatWithStylist(
+  message: string,
+  history: ChatTurn[],
+  preferences: UserPreferences
+): Promise<ChatResult | null> {
+  const recentHistory = history
+    .slice(-8)
+    .map((t) => `${t.role === "user" ? "User" : "Stylist"}: ${t.content}`)
+    .join("\n");
+
+  const prompt =
+    "You are a warm, encouraging personal stylist chatting with a user about their wardrobe and " +
+    "week ahead. Use what you already know about their taste, and pick up on any new preferences " +
+    "they mention (colors or styles they love/hate) so you can remember them long-term.\n\n" +
+    `Known preferences so far:\n${JSON.stringify(preferences)}\n\n` +
+    (recentHistory ? `Recent conversation:\n${recentHistory}\n\n` : "") +
+    `User's new message: "${message}"\n\n` +
+    "Respond with ONLY JSON matching this shape: " +
+    '{"reply":"a short, warm, conversational reply (1-3 sentences)",' +
+    '"formalityHint":1-5,"activityTags":["string"],' +
+    '"preferenceUpdates":{"favoriteColors":["string"],"dislikedColors":["string"],' +
+    '"favoriteStyles":["string"],"dislikedStyles":["string"],"notes":["string"]}}\n' +
+    "Only include NEW preferences mentioned in this message in preferenceUpdates — leave arrays " +
+    "empty if nothing new was mentioned. \"notes\" is for any other useful freeform detail worth " +
+    "remembering (e.g. sizing, an upcoming trip).";
+
+  const result = await generateJson<ChatResult>(prompt);
+  if (!result || typeof result.reply !== "string") return null;
+  return {
+    reply: result.reply,
+    formalityHint: result.formalityHint ?? 2,
+    activityTags: result.activityTags ?? [],
+    preferenceUpdates: { ...EMPTY_PREFERENCE_UPDATES, ...result.preferenceUpdates },
+  };
+}
+
+export async function chatWithStylist(
+  message: string,
+  history: ChatTurn[],
+  preferences: UserPreferences
+): Promise<ChatResult> {
+  const real = await realChatWithStylist(message, history, preferences);
   if (real) return real;
-  return mockExtractChatContext(message);
+  return mockChatWithStylist(message, preferences);
+}
+
+// Lightweight, keyword-based activity/formality extraction for the outfit
+// generator's free-text "what's going on this week" field — kept local
+// (no API call) since it only nudges scoring weights, not a chat reply.
+export function extractActivityContext(contextText: string): {
+  formalityHint: number;
+  activityTags: string[];
+} {
+  const lower = contextText.toLowerCase();
+  const matches = ACTIVITY_KEYWORDS.filter((entry) => entry.keywords.some((kw) => lower.includes(kw)));
+  const activityTags = matches.map((m) => m.tag);
+  const formalityHint = matches.length
+    ? Math.round(matches.reduce((sum, m) => sum + m.formality, 0) / matches.length)
+    : 2;
+  return { formalityHint, activityTags };
+}
+
+export function mergePreferences(
+  current: UserPreferences,
+  updates: ChatResult["preferenceUpdates"]
+): UserPreferences {
+  const merge = (base: string[], additions: string[], remove: string[]) =>
+    Array.from(new Set([...base.filter((v) => !remove.includes(v)), ...additions]));
+
+  return {
+    favoriteColors: merge(current.favoriteColors, updates.favoriteColors, updates.dislikedColors),
+    dislikedColors: merge(current.dislikedColors, updates.dislikedColors, updates.favoriteColors),
+    favoriteStyles: merge(current.favoriteStyles, updates.favoriteStyles, updates.dislikedStyles),
+    dislikedStyles: merge(current.dislikedStyles, updates.dislikedStyles, updates.favoriteStyles),
+    notes: Array.from(new Set([...current.notes, ...updates.notes])).slice(-20),
+  };
+}
+
+export function applyRatingToPreferences(
+  preferences: UserPreferences,
+  item: { color: string; styleTags: string[] },
+  rating: number
+): UserPreferences {
+  if (rating >= 4) {
+    return mergePreferences(preferences, {
+      ...EMPTY_PREFERENCE_UPDATES,
+      favoriteColors: [item.color],
+      favoriteStyles: item.styleTags,
+    });
+  }
+  if (rating <= 2) {
+    return mergePreferences(preferences, {
+      ...EMPTY_PREFERENCE_UPDATES,
+      dislikedColors: [item.color],
+      dislikedStyles: item.styleTags,
+    });
+  }
+  return preferences;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,25 +334,42 @@ function needsOuterwear(weather: DayWeather | null): boolean {
   return weather.tempHighF <= 60 || weather.condition === "rainy" || weather.condition === "snowy" || weather.condition === "windy";
 }
 
+function preferenceAffinity(item: ClothingItem, preferences: UserPreferences): number {
+  let affinity = 0;
+  if (preferences.favoriteColors.includes(item.color)) affinity += 1.5;
+  if (preferences.dislikedColors.includes(item.color)) affinity -= 1.5;
+  if (item.styleTags.some((tag) => preferences.favoriteStyles.includes(tag))) affinity += 1.5;
+  if (item.styleTags.some((tag) => preferences.dislikedStyles.includes(tag))) affinity -= 1.5;
+  return affinity;
+}
+
 function scoreItem(
   item: ClothingItem,
   opts: {
     formalityHint: number;
     warmthTarget: number;
     itemScores: Record<string, number>;
+    preferences: UserPreferences;
     seed: number;
   }
 ): number {
   const formalityFit = -Math.abs(item.formality - opts.formalityHint);
   const warmthFit = -Math.abs(item.warmth - opts.warmthTarget) * 1.2;
   const preference = (opts.itemScores[item.id] ?? 0) * 2;
+  const affinity = preferenceAffinity(item, opts.preferences);
   const jitter = (seededRandom(opts.seed + hashString(item.id)) - 0.5) * 1.5;
-  return formalityFit + warmthFit + preference + jitter;
+  return formalityFit + warmthFit + preference + affinity + jitter;
 }
 
 function pickBest(
   candidates: ClothingItem[],
-  opts: { formalityHint: number; warmthTarget: number; itemScores: Record<string, number>; seed: number }
+  opts: {
+    formalityHint: number;
+    warmthTarget: number;
+    itemScores: Record<string, number>;
+    preferences: UserPreferences;
+    seed: number;
+  }
 ): ClothingItem | null {
   if (candidates.length === 0) return null;
   return candidates
@@ -283,10 +390,11 @@ export interface GenerateOutfitsParams {
   formalityHint: number;
   activityTags: string[];
   itemScores: Record<string, number>;
+  preferences: UserPreferences;
 }
 
 export function generateWeeklyOutfits(params: GenerateOutfitsParams): OutfitSuggestion[] {
-  const { closet, days, context, formalityHint, activityTags, itemScores } = params;
+  const { closet, days, context, formalityHint, activityTags, itemScores, preferences } = params;
   const tops = closet.filter((i) => i.category === "top");
   const bottoms = closet.filter((i) => i.category === "bottom");
   const dresses = closet.filter((i) => i.category === "dress");
@@ -297,7 +405,7 @@ export function generateWeeklyOutfits(params: GenerateOutfitsParams): OutfitSugg
   return days.map((day, dayIndex) => {
     const warmthTarget = weatherWarmthTarget(day.weather);
     const seed = hashString(`${day.date}|${context}|${dayIndex}`);
-    const opts = { formalityHint, warmthTarget, itemScores, seed };
+    const opts = { formalityHint, warmthTarget, itemScores, preferences, seed };
 
     const useDress = dresses.length > 0 && seededRandom(seed + 99) > 0.6;
     const chosen: ClothingItem[] = [];

@@ -6,13 +6,17 @@ taste from the outfits you upvote or downvote.
 
 ## Features
 
-- **Wardrobe upload + AI auto-tagging** — drop in photos of your clothes; each item gets tagged
-  with category, color, pattern, style, warmth, and formality.
-- **Chat-based context** — describe your week ("client meetings Mon–Wed, a hike Saturday, dinner
-  date Saturday night") and the assistant factors that into what it picks.
-- **Weather-aware planning** — pulls a 7-day forecast for any location (current city or a trip
-  destination) and adjusts warmth/layering accordingly. Location is optional — leave it blank and
-  outfits are styled from your chat context alone, no forecast involved.
+- **Wardrobe upload + AI auto-tagging** — drop in photos of your clothes; the app detects each
+  garment in the photo, crops it out, and asks you to confirm it before tagging category, color,
+  pattern, style, warmth, and formality. You can edit any tag yourself at any time.
+- **Conversational AI stylist with memory** — chat about your week ("client meetings Mon–Wed, a
+  hike Saturday, dinner date Saturday night") and it remembers your taste (favorite/disliked
+  colors and styles) across sessions, powered by Google Gemini.
+- **Live weather planning** — pulls a real, free, no-API-key-required forecast (Open-Meteo) for
+  any city you type, or your current location via the browser, and adjusts warmth/layering
+  accordingly.
+- **Delete with feedback** — removing an item asks you to rate it first, feeding that signal back
+  into your preference profile.
 - **Up/down voting** — vote on generated outfits; votes nudge item preference scores that bias
   future picks toward what you actually like.
 - **Premium stylist stub** — a placeholder upgrade flow for a future "connect with a human
@@ -30,15 +34,17 @@ single-user app for now.
 
 ## Wiring in real AI and weather APIs
 
-By default the app runs entirely on deterministic mock logic (no API keys needed) so it works
-out of the box. To switch on real calls, set these environment variables (e.g. in `.env.local`):
+Weather works live out of the box (Open-Meteo needs no API key). AI chat/tagging falls back to
+deterministic mock logic until you add a free Gemini key. Set these in `.env.local`:
 
-- `ANTHROPIC_API_KEY` — enables real Claude vision calls for clothing tagging
-  (`src/lib/ai.ts`'s `classifyClothing`) and real chat-context understanding
-  (`extractChatContext`). Without it, both fall back to deterministic mock logic.
-- `OPENWEATHER_API_KEY` — enables real forecasts via OpenWeatherMap
-  (`src/lib/weather.ts`'s `getWeatherForDate`). Without it, weather is a seeded mock forecast
-  with realistic seasonal variation.
+- `GEMINI_API_KEY` — get a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+  Enables real Gemini vision calls for clothing detection (`src/lib/ai.ts`'s
+  `detectClothingItems`) and real conversational chat with preference memory
+  (`chatWithStylist`). Without it, both fall back to deterministic mock logic, so the app is
+  still fully usable with zero setup.
+- `GEMINI_MODEL` — optional, defaults to `gemini-2.0-flash`.
+- `OPENWEATHER_API_KEY` — optional secondary weather source, only used if Open-Meteo is somehow
+  unreachable. Not required — Open-Meteo (`src/lib/weather.ts`) is free, live, and keyless.
 
 Each integration point checks for its key at call time and falls back to mock data on failure,
 so you can flip these on independently.
@@ -62,8 +68,8 @@ needs no Apple Developer account, no Xcode, and no app store review.
    - "Import from GitHub" → this repo → branch `claude/ai-wardrobe-outfit-app-e0pzyf`.
    - Replit auto-detects Node and reads the included `.replit` config; hit **Run**, or manually run
      `npm install && npm run dev -- -p 3000` in the Shell.
-   - (Optional) Add `ANTHROPIC_API_KEY` / `OPENWEATHER_API_KEY` as Replit **Secrets** to use real AI
-     tagging and real forecasts instead of the mock fallbacks — neither is required.
+   - (Optional) Add `GEMINI_API_KEY` as a Replit **Secret** to use real AI detection and chat
+     instead of the mock fallback — not required, and weather is already live with no key.
    - Replit gives you a public `https://*.replit.dev` URL once it's running.
 2. **Open that URL on your iPhone in Safari** (or Chrome on Android).
 3. Tap **Share → Add to Home Screen** (iOS) or use the **Install app** prompt (Android/Chrome).
@@ -99,9 +105,12 @@ development against `npm run dev`.
 
 ## Project structure
 
-- `src/lib/ai.ts` — clothing classification, chat context extraction, and the outfit-generation
-  algorithm (weighs formality fit, weather/warmth fit, and learned preference scores).
-- `src/lib/weather.ts` — weather forecast (mock + real OpenWeatherMap path).
+- `src/lib/ai.ts` — clothing detection, conversational stylist chat with preference memory, and
+  the outfit-generation algorithm (weighs formality fit, weather/warmth fit, learned preference
+  scores, and item votes).
+- `src/lib/gemini.ts` — thin REST client for the Gemini API used by `ai.ts`.
+- `src/lib/weather.ts` — live weather forecast (Open-Meteo primary, OpenWeatherMap optional
+  secondary, mock last resort).
 - `src/lib/db.ts` / `src/lib/storage.ts` — JSON persistence and image file storage.
 - `src/app/api/*` — REST endpoints for items, outfits, chat, weather, and stylist requests.
 - `src/app/(pages)` — Dashboard (`/`), Closet (`/closet`), Premium (`/premium`).

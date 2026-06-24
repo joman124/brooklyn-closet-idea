@@ -28,26 +28,36 @@ export default function ChatPanel({ messages, onSend }: ChatPanelProps) {
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border bg-surface p-5">
       <div>
-        <p className="font-semibold">Tell your stylist what&apos;s going on</p>
+        <p className="font-semibold">💬 Your AI stylist</p>
         <p className="text-sm text-muted">
           e.g. &ldquo;I have client meetings Mon-Wed, then a hike Saturday and a dinner date Saturday night.&rdquo;
+          I&apos;ll remember what colors and styles you love along the way.
         </p>
       </div>
 
       <div className="mt-4 flex-1 space-y-3 overflow-y-auto scrollbar-thin pr-1" style={{ maxHeight: 280 }}>
         {messages.length === 0 ? (
-          <p className="text-sm text-muted">No messages yet — say hello!</p>
+          <p className="text-sm text-muted">No messages yet — say hello! 👋</p>
         ) : (
           messages.map((msg) => (
             <div
               key={msg.id}
-              className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                msg.role === "user"
-                  ? "ml-auto bg-accent text-white"
-                  : "bg-accent-soft text-foreground"
-              }`}
+              className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              {msg.content}
+              {msg.role === "assistant" && (
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pop-soft text-xs">
+                  🧥
+                </span>
+              )}
+              <div
+                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                  msg.role === "user"
+                    ? "bg-accent text-white"
+                    : "bg-accent-soft text-foreground"
+                }`}
+              >
+                {msg.content}
+              </div>
             </div>
           ))
         )}

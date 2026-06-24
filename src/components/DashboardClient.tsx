@@ -9,7 +9,8 @@ import type { ChatMessage, ClothingItem, DayWeather, OutfitSuggestion } from "@/
 export default function DashboardClient() {
   const [location, setLocation] = useState("");
   const [weather, setWeather] = useState<DayWeather[]>([]);
-  const [isWeatherLoading, setIsWeatherLoading] = useState(true);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [outfits, setOutfits] = useState<OutfitSuggestion[]>([]);
   const [closet, setCloset] = useState<ClothingItem[]>([]);
@@ -29,17 +30,14 @@ export default function DashboardClient() {
 
   useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams({ location, days: "7" });
 
     async function loadWeather() {
       if (!location.trim()) {
-        if (!cancelled) {
-          setWeather([]);
-          setIsWeatherLoading(false);
-        }
+        if (!cancelled) setWeather([]);
         return;
       }
       setIsWeatherLoading(true);
+      const params = new URLSearchParams({ location, days: "7" });
       const res = await fetch(`/api/weather?${params.toString()}`);
       const data = await res.json();
       if (cancelled) return;
@@ -52,6 +50,39 @@ export default function DashboardClient() {
       cancelled = true;
     };
   }, [location]);
+
+  function handleUseMyLocation() {
+    if (!navigator.geolocation) {
+      setError("Your browser doesn't support location sharing — type a city instead.");
+      return;
+    }
+    setIsLocating(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setIsWeatherLoading(true);
+        try {
+          const params = new URLSearchParams({
+            lat: String(latitude),
+            lon: String(longitude),
+            days: "7",
+          });
+          const res = await fetch(`/api/weather?${params.toString()}`);
+          const data = await res.json();
+          setWeather(data.weather ?? []);
+          setLocation(data.location ?? "Your location");
+        } finally {
+          setIsWeatherLoading(false);
+          setIsLocating(false);
+        }
+      },
+      () => {
+        setIsLocating(false);
+        setError("Couldn't get your location — type a city instead.");
+      }
+    );
+  }
 
   async function handleSendMessage(message: string) {
     const res = await fetch("/api/chat", {
@@ -104,10 +135,13 @@ export default function DashboardClient() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">This Week</h1>
-        <p className="mt-1 text-muted">
-          Tell us what&apos;s going on, check the weather, and let AI build your week of outfits.
+      <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-accent-soft via-pop-soft to-accent-soft p-6">
+        <span className="absolute -right-2 -top-2 animate-float text-5xl opacity-70">✨</span>
+        <span className="absolute bottom-2 right-16 hidden text-3xl opacity-60 sm:block">👜</span>
+        <h1 className="text-3xl font-semibold tracking-tight">This Week ✨</h1>
+        <p className="mt-1 max-w-lg text-muted">
+          Tell your stylist what&apos;s going on, set your city for live weather, and let AI build
+          your whole week of outfits in one tap.
         </p>
       </div>
 
@@ -116,13 +150,15 @@ export default function DashboardClient() {
           <WeatherStrip
             location={location}
             onLocationChange={setLocation}
+            onUseMyLocation={handleUseMyLocation}
+            isLocating={isLocating}
             weather={weather}
             isLoading={isWeatherLoading}
           />
 
           <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-5">
             <div>
-              <p className="font-semibold">Ready to plan your week?</p>
+              <p className="font-semibold">Ready to plan your week? 🪄</p>
               <p className="text-sm text-muted">
                 {closet.length === 0
                   ? "Upload some wardrobe items first."
@@ -132,7 +168,7 @@ export default function DashboardClient() {
             <button
               onClick={handleGenerate}
               disabled={isGenerating || closet.length === 0}
-              className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-accent to-pop px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
             >
               {isGenerating ? "Styling…" : "Generate this week's outfits"}
             </button>

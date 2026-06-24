@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractChatContext } from "@/lib/ai";
+import { chatWithStylist, mergePreferences, type ChatTurn } from "@/lib/ai";
 import { withDb } from "@/lib/db";
 import type { ChatMessage } from "@/lib/types";
 
 export async function GET() {
-  const chatMessages = withDb((data) => data.chatMessages);
-  return NextResponse.json({ chatMessages });
+  const { chatMessages, preferences } = withDb((data) => ({
+    chatMessages: data.chatMessages,
+    preferences: data.preferences,
+  }));
+  return NextResponse.json({ chatMessages, preferences });
 }
 
 export async function POST(request: NextRequest) {
@@ -14,7 +17,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
 
-  const context = await extractChatContext(message);
+  const { history, preferences } = withDb((data) => ({
+    history: data.chatMessages.slice(-8).map(
+      (m): ChatTurn => ({ role: m.role, content: m.content })
+    ),
+    preferences: data.preferences,
+  }));
+
+  const result = await chatWithStylist(message, history, preferences);
 
   const userMessage: ChatMessage = {
     id: crypto.randomUUID(),
@@ -25,13 +35,20 @@ export async function POST(request: NextRequest) {
   const assistantMessage: ChatMessage = {
     id: crypto.randomUUID(),
     role: "assistant",
-    content: context.reply,
+    content: result.reply,
     createdAt: new Date().toISOString(),
   };
 
-  withDb((data) => {
+  const updatedPreferences = withDb((data) => {
     data.chatMessages.push(userMessage, assistantMessage);
+    data.preferences = mergePreferences(data.preferences, result.preferenceUpdates);
+    return data.preferences;
   });
 
-  return NextResponse.json({ userMessage, assistantMessage, context });
+  return NextResponse.json({
+    userMessage,
+    assistantMessage,
+    context: result,
+    preferences: updatedPreferences,
+  });
 }

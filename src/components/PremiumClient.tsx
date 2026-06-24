@@ -4,14 +4,17 @@ import { useState } from "react";
 
 const PERKS = [
   {
+    emoji: "🧑‍🎨",
     title: "1:1 stylist matching",
     body: "Get paired with a human stylist who reviews your closet and weekly plans, then fine-tunes outfit picks beyond what the AI suggests.",
   },
   {
+    emoji: "🛍️",
     title: "Brand partner drops",
     body: "See new pieces from partner brands curated to match colors and styles you already wear and like.",
   },
   {
+    emoji: "🌍",
     title: "Unlimited trip planning",
     body: "Plan outfits for multiple destinations at once with full multi-city weather lookahead.",
   },
@@ -35,9 +38,11 @@ export default function PremiumClient() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
-      <div className="rounded-2xl bg-accent-soft p-8 text-center">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent-soft via-pop-soft to-accent-soft p-8 text-center">
+        <span className="absolute -left-3 top-3 animate-float text-4xl opacity-70">💅</span>
+        <span className="absolute -right-3 bottom-3 hidden text-4xl opacity-70 sm:block">👠</span>
         <p className="text-sm font-semibold uppercase tracking-wide text-accent">Premium</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Style help from an actual human</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Style help from an actual human ✨</h1>
         <p className="mx-auto mt-2 max-w-xl text-muted">
           This is a preview of our upcoming premium tier. Tell us a bit about yourself and we&apos;ll
           reach out when stylist matching and brand partner drops go live.
@@ -46,8 +51,12 @@ export default function PremiumClient() {
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         {PERKS.map((perk) => (
-          <div key={perk.title} className="rounded-2xl border border-border bg-surface p-5">
-            <p className="font-semibold">{perk.title}</p>
+          <div
+            key={perk.title}
+            className="rounded-2xl border border-border bg-surface p-5 transition-shadow hover:shadow-md"
+          >
+            <span className="text-2xl">{perk.emoji}</span>
+            <p className="mt-2 font-semibold">{perk.title}</p>
             <p className="mt-1 text-sm text-muted">{perk.body}</p>
           </div>
         ))}

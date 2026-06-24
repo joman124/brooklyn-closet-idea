@@ -36,8 +36,10 @@ export default function UploadDropzone({ onUpload }: UploadDropzoneProps) {
         handleFiles(e.dataTransfer.files);
       }}
       onClick={() => inputRef.current?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
-        isDragging ? "border-accent bg-accent-soft/50" : "border-border bg-surface"
+      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all ${
+        isDragging
+          ? "scale-[1.01] border-accent bg-accent-soft/50"
+          : "border-border bg-surface hover:border-accent/50 hover:bg-accent-soft/20"
       }`}
     >
       <input
@@ -48,12 +50,13 @@ export default function UploadDropzone({ onUpload }: UploadDropzoneProps) {
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
-      <span className="text-3xl">📷</span>
+      <span className="text-3xl">{isUploading ? "✨" : "📷"}</span>
       <p className="font-medium">
-        {isUploading ? "Uploading & tagging with AI…" : "Drag photos here, or click to upload"}
+        {isUploading ? "Spotting items with AI…" : "Drag photos here, or click to upload"}
       </p>
       <p className="text-sm text-muted">
-        Add as many wardrobe photos as you like — we&apos;ll auto-tag category, color, and style.
+        Add wardrobe photos and we&apos;ll find each item, ask you to confirm it, then tag color,
+        category, and style automatically.
       </p>
     </div>
   );
