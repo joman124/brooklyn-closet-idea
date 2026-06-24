@@ -158,33 +158,72 @@ export default function DashboardClient() {
 
           <div className="flex flex-col items-stretch gap-3 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-semibold">Ready to plan your week? 🪄</p>
+              <p className="font-semibold">
+                {isGenerating
+                  ? "Styling your week… 🪄"
+                  : outfits.length > 0
+                    ? "Your week is ready ✨"
+                    : "Ready to plan your week? 🪄"}
+              </p>
               <p className="text-sm text-muted">
-                {closet.length === 0
-                  ? "Upload some wardrobe items first."
-                  : `Mixing from ${closet.length} closet item${closet.length === 1 ? "" : "s"}.`}
+                {isGenerating
+                  ? "Matching weather, mood, and your closet — this can take a moment."
+                  : closet.length === 0
+                    ? "Upload some wardrobe items first."
+                    : `Mixing from ${closet.length} closet item${closet.length === 1 ? "" : "s"}.`}
               </p>
             </div>
             <button
               onClick={handleGenerate}
               disabled={isGenerating || closet.length === 0}
-              className="rounded-lg bg-gradient-to-r from-accent to-pop px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 sm:shrink-0"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-accent to-pop px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 sm:shrink-0"
             >
-              {isGenerating ? "Styling…" : "Generate this week's outfits"}
+              {isGenerating && (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              )}
+              {isGenerating
+                ? "Styling…"
+                : outfits.length > 0
+                  ? "Regenerate this week's outfits"
+                  : "Generate this week's outfits"}
             </button>
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
-          {outfits.length > 0 && (
+          {isGenerating ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-2xl border border-border bg-surface p-4">
+                  <div className="flex items-baseline justify-between">
+                    <div className="h-4 w-24 rounded bg-accent-soft/60" />
+                    <div className="h-3 w-12 rounded bg-accent-soft/40" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="aspect-square rounded-lg bg-accent-soft/40" />
+                    <div className="aspect-square rounded-lg bg-accent-soft/40" />
+                  </div>
+                  <div className="mt-3 h-3 w-full rounded bg-accent-soft/30" />
+                </div>
+              ))}
+            </div>
+          ) : outfits.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {outfits
                 .slice()
                 .sort((a, b) => a.date.localeCompare(b.date))
-                .map((outfit) => (
-                  <OutfitCard key={outfit.id} outfit={outfit} items={closet} onVote={handleVote} />
+                .map((outfit, i) => (
+                  <div key={outfit.id} className="animate-fade-in" style={{ animationDelay: `${i * 40}ms` }}>
+                    <OutfitCard outfit={outfit} items={closet} onVote={handleVote} />
+                  </div>
                 ))}
             </div>
+          ) : (
+            !error && (
+              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted">
+                Your week is empty — tap generate to see outfit ideas here.
+              </div>
+            )
           )}
         </div>
 
