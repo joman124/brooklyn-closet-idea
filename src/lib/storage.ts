@@ -9,10 +9,21 @@ export function ensureUploadDir(): void {
   }
 }
 
-export function saveUploadedImage(buffer: Buffer, originalFilename: string): string {
+const EXTENSION_BY_MIME: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+
+// The uploaded blob is always a canvas-cropped JPEG (see cropImageToBlob), so the
+// saved extension must come from its real MIME type rather than the original
+// photo's filename — otherwise a cropped JPEG from a "photo.heic" or "photo.png"
+// upload gets saved with a mismatched extension that browsers refuse to render.
+export function saveUploadedImage(buffer: Buffer, mimeType: string): string {
   ensureUploadDir();
-  const ext = path.extname(originalFilename) || ".jpg";
-  const safeName = `${crypto.randomUUID()}${ext.toLowerCase()}`;
+  const ext = EXTENSION_BY_MIME[mimeType] ?? ".jpg";
+  const safeName = `${crypto.randomUUID()}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, safeName), buffer);
   return `/uploads/${safeName}`;
 }

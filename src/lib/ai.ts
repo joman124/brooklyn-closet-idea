@@ -184,7 +184,39 @@ function extractMockPreferenceUpdates(message: string): ChatResult["preferenceUp
   return updates;
 }
 
-function mockChatWithStylist(message: string, preferences: UserPreferences): ChatResult {
+// Compact text summary of the closet, capped in length so it's cheap to drop
+// into a chat prompt — groups by category and names each item by color +
+// subcategory so the model (or the mock fallback) can refer to real pieces.
+function summarizeCloset(closet: ClothingItem[]): string {
+  if (closet.length === 0) return "";
+  const byCategory = new Map<ClothingCategory, ClothingItem[]>();
+  for (const item of closet) {
+    byCategory.set(item.category, [...(byCategory.get(item.category) ?? []), item]);
+  }
+  return Array.from(byCategory.entries())
+    .map(([category, items]) => {
+      const names = items
+        .slice(0, 8)
+        .map((i) => `${i.color} ${i.subcategory} (id:${i.id})`)
+        .join(", ");
+      return `${category}: ${names}`;
+    })
+    .join("\n");
+}
+
+function describeItem(item: ClothingItem): string {
+  return `your ${item.color} ${item.subcategory}`;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function mockChatWithStylist(
+  message: string,
+  preferences: UserPreferences,
+  closet: ClothingItem[]
+): ChatResult {
   const lower = message.toLowerCase();
   const matches = ACTIVITY_KEYWORDS.filter((entry) => entry.keywords.some((kw) => lower.includes(kw)));
   const activityTags = matches.map((m) => m.tag);
@@ -201,11 +233,29 @@ function mockChatWithStylist(message: string, preferences: UserPreferences): Cha
 
   const knownPrefs = [...preferences.favoriteColors, ...preferences.favoriteStyles].slice(0, 2);
 
+  const seed = hashString(message);
+  const candidateItem =
+    activityTags.length && closet.length
+      ? pickBest(closet, {
+          formalityHint,
+          warmthTarget: 3,
+          itemScores: {},
+          preferences,
+          seed,
+        })
+      : null;
+
   let reply = activityTags.length
     ? `Got it — sounds like ${activityTags.join(", ")} is on the agenda. I'll lean ${
         formalityHint >= 4 ? "polished" : formalityHint <= 1 ? "relaxed" : "smart-casual"
       } and factor in the weather when I put outfits together for you.`
     : "Thanks for the context! I'll factor that into your outfit plan.";
+
+  if (candidateItem) {
+    reply += ` ${capitalize(describeItem(candidateItem))} could be a great starting piece for that.`;
+  } else if (activityTags.length && closet.length === 0) {
+    reply += " Upload a few closet photos and I can start recommending specific pieces.";
+  }
 
   if (learnedSomething) {
     reply += " Noted your taste there — I'll remember that for future picks.";
@@ -219,18 +269,23 @@ function mockChatWithStylist(message: string, preferences: UserPreferences): Cha
 async function realChatWithStylist(
   message: string,
   history: ChatTurn[],
-  preferences: UserPreferences
+  preferences: UserPreferences,
+  closet: ClothingItem[]
 ): Promise<ChatResult | null> {
   const recentHistory = history
     .slice(-8)
     .map((t) => `${t.role === "user" ? "User" : "Stylist"}: ${t.content}`)
     .join("\n");
+  const closetSummary = summarizeCloset(closet);
 
   const prompt =
     "You are a warm, encouraging personal stylist chatting with a user about their wardrobe and " +
     "week ahead. Use what you already know about their taste, and pick up on any new preferences " +
-    "they mention (colors or styles they love/hate) so you can remember them long-term.\n\n" +
+    "they mention (colors or styles they love/hate) so you can remember them long-term. When it's " +
+    "relevant to what they're talking about, refer to actual pieces from their closet (listed below) " +
+    "by color and name instead of speaking generically.\n\n" +
     `Known preferences so far:\n${JSON.stringify(preferences)}\n\n` +
+    (closetSummary ? `User's closet:\n${closetSummary}\n\n` : "User's closet is currently empty.\n\n") +
     (recentHistory ? `Recent conversation:\n${recentHistory}\n\n` : "") +
     `User's new message: "${message}"\n\n` +
     "Respond with ONLY JSON matching this shape: " +
@@ -255,11 +310,12 @@ async function realChatWithStylist(
 export async function chatWithStylist(
   message: string,
   history: ChatTurn[],
-  preferences: UserPreferences
+  preferences: UserPreferences,
+  closet: ClothingItem[]
 ): Promise<ChatResult> {
-  const real = await realChatWithStylist(message, history, preferences);
+  const real = await realChatWithStylist(message, history, preferences, closet);
   if (real) return real;
-  return mockChatWithStylist(message, preferences);
+  return mockChatWithStylist(message, preferences, closet);
 }
 
 // Lightweight, keyword-based activity/formality extraction for the outfit

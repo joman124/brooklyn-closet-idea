@@ -18,6 +18,7 @@ export default function ItemDetailModal({ item, onClose, onDelete, onUpdate }: I
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [draft, setDraft] = useState(item);
+  const [imageFailed, setImageFailed] = useState(false);
 
   function startEdit() {
     setDraft(item);
@@ -41,8 +42,19 @@ export default function ItemDetailModal({ item, onClose, onDelete, onUpdate }: I
         className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative aspect-square w-full bg-accent-soft/40">
-          <Image src={item.imageUrl} alt={item.subcategory} fill className="object-cover" unoptimized />
+        <div className="relative flex aspect-square w-full items-center justify-center bg-accent-soft/40">
+          {imageFailed ? (
+            <span className="text-sm text-muted">📷 Photo unavailable</span>
+          ) : (
+            <Image
+              src={item.imageUrl}
+              alt={item.subcategory}
+              fill
+              className="object-cover"
+              unoptimized
+              onError={() => setImageFailed(true)}
+            />
+          )}
           <button
             onClick={onClose}
             aria-label="Close"

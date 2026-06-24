@@ -17,14 +17,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
 
-  const { history, preferences } = withDb((data) => ({
+  const { history, preferences, closet } = withDb((data) => ({
     history: data.chatMessages.slice(-8).map(
       (m): ChatTurn => ({ role: m.role, content: m.content })
     ),
     preferences: data.preferences,
+    closet: data.items,
   }));
 
-  const result = await chatWithStylist(message, history, preferences);
+  const result = await chatWithStylist(message, history, preferences, closet);
 
   const userMessage: ChatMessage = {
     id: crypto.randomUUID(),

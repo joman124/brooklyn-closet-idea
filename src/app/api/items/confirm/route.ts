@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const formality = Number(formData.get("formality") ?? 2);
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const imageUrl = saveUploadedImage(buffer, originalFilename);
+  const imageUrl = saveUploadedImage(buffer, file.type);
 
   const item: ClothingItem = {
     id: crypto.randomUUID(),
